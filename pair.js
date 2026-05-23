@@ -4,50 +4,52 @@ import pino from "pino";
 import mongoose from "mongoose";
 
 import {
-    makeWASocket,
+    default as makeWASocket,
     useMultiFileAuthState,
-    delay,
     makeCacheableSignalKeyStore,
-    Browsers,
-    jidNormalizedUser,
     fetchLatestBaileysVersion,
     DisconnectReason,
+    Browsers,
+    jidNormalizedUser,
+    delay,
 } from "@whiskeysockets/baileys";
 
 import pn from "awesome-phonenumber";
 
 const router = express.Router();
 
-/* =========================================
-   MongoDB Connection
-========================================= */
+/* =====================================
+   MongoDB Connect
+===================================== */
 
-mongoose.connect(
-    "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/oshiyamd?retryWrites=true&w=majority&appName=oshiyamd",
-    {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-    }
-);
+const MONGO_URL = "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/?appName=oshiyamd";
 
-mongoose.connection.on("connected", () => {
-    console.log("✅ MongoDB Connected");
-});
+mongoose
+    .connect(MONGO_URL)
+    .then(() => {
+        console.log("✅ MongoDB Connected");
+    })
+    .catch((err) => {
+        console.log("❌ MongoDB Error:", err);
+    });
 
-mongoose.connection.on("error", (err) => {
-    console.log("❌ MongoDB Error:", err);
-});
-
-/* =========================================
-   Session Schema
-========================================= */
+/* =====================================
+   Schema
+===================================== */
 
 const sessionSchema = new mongoose.Schema({
-    number: String,
+    number: {
+        type: String,
+        required: true,
+    },
 
-    sessionId: String,
+    sessionId: {
+        type: String,
+    },
 
-    sessionData: Object,
+    sessionData: {
+        type: Object,
+    },
 
     createdAt: {
         type: Date,
@@ -55,62 +57,74 @@ const sessionSchema = new mongoose.Schema({
     },
 });
 
-const Session = mongoose.model("Session", sessionSchema);
+const Session = mongoose.model(
+    "Session",
+    sessionSchema
+);
 
-/* =========================================
+/* =====================================
    Helpers
-========================================= */
+===================================== */
 
 function removeFile(path) {
-    try {
-        if (fs.existsSync(path)) {
-            fs.rmSync(path, {
-                recursive: true,
-                force: true,
-            });
-        }
-    } catch (err) {
-        console.log("❌ Remove File Error:", err);
+    if (fs.existsSync(path)) {
+        fs.rmSync(path, {
+            recursive: true,
+            force: true,
+        });
     }
 }
 
-/* =========================================
+/* =====================================
    Route
-========================================= */
+===================================== */
 
 router.get("/", async (req, res) => {
     try {
-        let num = req.query.number;
+        let number = req.query.number;
 
-        if (!num) {
+        if (!number) {
             return res.status(400).json({
                 status: false,
-                message: "Number is required",
+                message: "Phone number required",
             });
         }
 
-        num = num.replace(/[^0-9]/g, "");
+        number = number.replace(/[^0-9]/g, "");
 
-        const phone = pn("+" + num);
+        const phone = pn("+" + number);
 
         if (!phone.isValid()) {
             return res.status(400).json({
                 status: false,
-                message: "Invalid number",
+                message: "Invalid phone number",
             });
         }
 
-        num = phone.getNumber("e164").replace("+", "");
+        number = phone
+            .getNumber("e164")
+            .replace("+", "");
 
-        const sessionDir = `./session_${num}`;
+        const sessionDir =
+            "./session_" + number;
 
         removeFile(sessionDir);
 
+        /* =====================================
+           Auth State
+        ===================================== */
+
         const { state, saveCreds } =
-            await useMultiFileAuthState(sessionDir);
+            await useMultiFileAuthState(
+                sessionDir
+            );
 
         const { version } =
             await fetchLatestBaileysVersion();
+
+        /* =====================================
+           Socket
+        ===================================== */
 
         const sock = makeWASocket({
             version,
@@ -121,193 +135,252 @@ router.get("/", async (req, res) => {
 
             printQRInTerminal: false,
 
-            browser: Browsers.windows("Chrome"),
+            browser: Browsers.windows(
+                "Chrome"
+            ),
+
+            syncFullHistory: false,
+
+            markOnlineOnConnect: false,
+
+            fireInitQueries: true,
 
             auth: {
                 creds: state.creds,
 
-                keys: makeCacheableSignalKeyStore(
-                    state.keys,
-                    pino({ level: "silent" })
-                ),
+                keys:
+                    makeCacheableSignalKeyStore(
+                        state.keys,
+                        pino({
+                            level: "silent",
+                        })
+                    ),
             },
 
             connectTimeoutMs: 60000,
 
-            keepAliveIntervalMs: 10000,
-
-            markOnlineOnConnect: false,
-
             defaultQueryTimeoutMs: 60000,
+
+            keepAliveIntervalMs: 10000,
         });
 
-        /* =========================================
+        /* =====================================
            Save Creds
-        ========================================= */
+        ===================================== */
 
-        sock.ev.on("creds.update", saveCreds);
+        sock.ev.on(
+            "creds.update",
+            saveCreds
+        );
 
-        /* =========================================
-           Connection Update
-        ========================================= */
+        /* =====================================
+           Generate Pair Code
+        ===================================== */
 
-        sock.ev.on("connection.update", async (update) => {
-            const { connection, lastDisconnect } = update;
-
-            if (connection === "open") {
-                console.log("✅ WhatsApp Connected");
-
-                try {
-                    /* =========================
-                       Read Full Session Files
-                    ========================= */
-
-                    const files = fs.readdirSync(sessionDir);
-
-                    let sessionData = {};
-
-                    for (const file of files) {
-                        const filePath = `${sessionDir}/${file}`;
-
-                        const data = fs.readFileSync(
-                            filePath,
-                            "utf-8"
-                        );
-
-                        sessionData[file] =
-                            JSON.parse(data);
-                    }
-
-                    /* =========================
-                       Save MongoDB
-                    ========================= */
-
-                    await Session.findOneAndUpdate(
-                        {
-                            number: num,
-                        },
-                        {
-                            number: num,
-
-                            sessionId:
-                                state.creds.me?.id || num,
-
-                            sessionData,
-                        },
-                        {
-                            upsert: true,
-                            new: true,
-                        }
-                    );
-
-                    console.log(
-                        "✅ Session Saved To MongoDB"
-                    );
-
-                    /* =========================
-                       Send Message
-                    ========================= */
-
-                    const jid = jidNormalizedUser(
-                        `${num}@s.whatsapp.net`
-                    );
-
-                    await sock.sendMessage(jid, {
-                        text: "✅ Session Saved Successfully In MongoDB",
-                    });
-
-                    console.log(
-                        "📨 Success Message Sent"
-                    );
-
-                    await delay(3000);
-
-                    removeFile(sessionDir);
-
-                    console.log(
-                        "🧹 Session Folder Deleted"
-                    );
-
-                } catch (err) {
-                    console.log(
-                        "❌ Save Session Error:",
-                        err
-                    );
-                }
-            }
-
-            /* =========================================
-               Reconnect
-            ========================================= */
-
-            if (connection === "close") {
-                const reason =
-                    lastDisconnect?.error?.output
-                        ?.statusCode;
-
-                console.log(
-                    "❌ Connection Closed:",
-                    reason
-                );
-
-                if (
-                    reason ===
-                    DisconnectReason.loggedOut
-                ) {
-                    console.log("❌ Logged Out");
-                    removeFile(sessionDir);
-                } else {
-                    console.log("🔄 Reconnecting...");
-                }
-            }
-        });
-
-        /* =========================================
-           Pairing Code
-        ========================================= */
+        await delay(3000);
 
         if (!state.creds.registered) {
-            await delay(2000);
+            try {
+                const code =
+                    await sock.requestPairingCode(
+                        number
+                    );
 
-            const code =
-                await sock.requestPairingCode(num);
+                const formatted =
+                    code
+                        ?.match(/.{1,4}/g)
+                        ?.join("-") || code;
 
-            const formattedCode =
-                code?.match(/.{1,4}/g)?.join("-") ||
-                code;
+                console.log(
+                    "📱 Pair Code:",
+                    formatted
+                );
 
-            console.log(
-                `📱 Pair Code For ${num}:`,
-                formattedCode
-            );
+                res.json({
+                    status: true,
+                    code: formatted,
+                });
+            } catch (err) {
+                console.log(
+                    "❌ Pair Error:",
+                    err
+                );
 
-            return res.json({
-                status: true,
-                code: formattedCode,
-            });
+                return res.status(500).json({
+                    status: false,
+                    message:
+                        "Cannot generate pairing code",
+                });
+            }
         }
 
+        /* =====================================
+           Connection Update
+        ===================================== */
+
+        sock.ev.on(
+            "connection.update",
+            async (update) => {
+                const {
+                    connection,
+                    lastDisconnect,
+                } = update;
+
+                if (
+                    connection === "open"
+                ) {
+                    console.log(
+                        "✅ WhatsApp Connected"
+                    );
+
+                    try {
+                        const files =
+                            fs.readdirSync(
+                                sessionDir
+                            );
+
+                        let sessionData = {};
+
+                        for (const file of files) {
+                            const path =
+                                `${sessionDir}/${file}`;
+
+                            const data =
+                                fs.readFileSync(
+                                    path,
+                                    "utf8"
+                                );
+
+                            sessionData[file] =
+                                JSON.parse(data);
+                        }
+
+                        await Session.findOneAndUpdate(
+                            {
+                                number,
+                            },
+                            {
+                                number,
+
+                                sessionId:
+                                    state.creds
+                                        .me?.id,
+
+                                sessionData,
+                            },
+                            {
+                                upsert: true,
+                                new: true,
+                            }
+                        );
+
+                        console.log(
+                            "✅ Session Saved MongoDB"
+                        );
+
+                        const jid =
+                            jidNormalizedUser(
+                                number +
+                                    "@s.whatsapp.net"
+                            );
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text: "✅ Session saved successfully in MongoDB",
+                            }
+                        );
+
+                        console.log(
+                            "📨 Message Sent"
+                        );
+
+                        await delay(5000);
+
+                        removeFile(
+                            sessionDir
+                        );
+
+                        console.log(
+                            "🧹 Session Deleted"
+                        );
+                    } catch (err) {
+                        console.log(
+                            "❌ Save Error:",
+                            err
+                        );
+                    }
+                }
+
+                if (
+                    connection === "close"
+                ) {
+                    const reason =
+                        lastDisconnect
+                            ?.error?.output
+                            ?.statusCode;
+
+                    console.log(
+                        "❌ Connection Closed:",
+                        reason
+                    );
+
+                    if (
+                        reason ===
+                        DisconnectReason.loggedOut
+                    ) {
+                        console.log(
+                            "❌ Logged Out"
+                        );
+
+                        removeFile(
+                            sessionDir
+                        );
+                    } else {
+                        console.log(
+                            "🔄 Reconnecting..."
+                        );
+                    }
+                }
+            }
+        );
     } catch (err) {
-        console.log("❌ Main Error:", err);
+        console.log(
+            "❌ Main Error:",
+            err
+        );
 
         return res.status(500).json({
             status: false,
-            message: "Internal Server Error",
+            message:
+                "Internal server error",
             error: String(err),
         });
     }
 });
 
-/* =========================================
-   Error Handler
-========================================= */
+/* =====================================
+   Error Handlers
+===================================== */
 
-process.on("uncaughtException", (err) => {
-    console.log("❌ Uncaught Exception:", err);
-});
+process.on(
+    "uncaughtException",
+    (err) => {
+        console.log(
+            "❌ Uncaught Exception:",
+            err
+        );
+    }
+);
 
-process.on("unhandledRejection", (reason) => {
-    console.log("❌ Unhandled Rejection:", reason);
-});
+process.on(
+    "unhandledRejection",
+    (reason) => {
+        console.log(
+            "❌ Unhandled Rejection:",
+            reason
+        );
+    }
+);
 
 export default router;
