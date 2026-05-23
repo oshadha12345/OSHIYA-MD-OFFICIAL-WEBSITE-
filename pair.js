@@ -18,9 +18,9 @@ import pn from "awesome-phonenumber";
 
 const router = express.Router();
 
-/* =====================================
+/* =========================================
    MongoDB Connect
-===================================== */
+========================================= */
 
 const MONGO_URL = "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/?appName=oshiyamd";
 
@@ -33,23 +33,16 @@ mongoose
         console.log("❌ MongoDB Error:", err);
     });
 
-/* =====================================
+/* =========================================
    Schema
-===================================== */
+========================================= */
 
 const sessionSchema = new mongoose.Schema({
-    number: {
-        type: String,
-        required: true,
-    },
+    number: String,
 
-    sessionId: {
-        type: String,
-    },
+    sessionId: String,
 
-    sessionData: {
-        type: Object,
-    },
+    sessionData: Object,
 
     createdAt: {
         type: Date,
@@ -62,24 +55,33 @@ const Session = mongoose.model(
     sessionSchema
 );
 
-/* =====================================
+/* =========================================
    Helpers
-===================================== */
+========================================= */
 
 function removeFile(path) {
-    if (fs.existsSync(path)) {
-        fs.rmSync(path, {
-            recursive: true,
-            force: true,
-        });
+    try {
+        if (fs.existsSync(path)) {
+            fs.rmSync(path, {
+                recursive: true,
+                force: true,
+            });
+        }
+    } catch (err) {
+        console.log(
+            "❌ Remove File Error:",
+            err
+        );
     }
 }
 
-/* =====================================
+/* =========================================
    Route
-===================================== */
+========================================= */
 
 router.get("/", async (req, res) => {
+    let sock;
+
     try {
         let number = req.query.number;
 
@@ -126,7 +128,7 @@ router.get("/", async (req, res) => {
            Socket
         ===================================== */
 
-        const sock = makeWASocket({
+        sock = makeWASocket({
             version,
 
             logger: pino({
@@ -136,14 +138,14 @@ router.get("/", async (req, res) => {
             printQRInTerminal: false,
 
             browser: Browsers.windows(
-                "Chrome"
+                "Firefox"
             ),
 
             syncFullHistory: false,
 
-            markOnlineOnConnect: false,
-
             fireInitQueries: true,
+
+            markOnlineOnConnect: false,
 
             auth: {
                 creds: state.creds,
@@ -164,52 +166,58 @@ router.get("/", async (req, res) => {
             keepAliveIntervalMs: 10000,
         });
 
-        /* =====================================
-           Save Creds
-        ===================================== */
-
         sock.ev.on(
             "creds.update",
             saveCreds
         );
 
         /* =====================================
-           Generate Pair Code
+           WAIT SOCKET READY
         ===================================== */
 
-        await delay(3000);
+        await delay(6000);
 
-        if (!state.creds.registered) {
+        /* =====================================
+           Pair Code
+        ===================================== */
+
+        if (
+            !sock.authState.creds
+                .registered
+        ) {
             try {
                 const code =
                     await sock.requestPairingCode(
                         number
                     );
 
-                const formatted =
+                const formattedCode =
                     code
                         ?.match(/.{1,4}/g)
                         ?.join("-") || code;
 
                 console.log(
                     "📱 Pair Code:",
-                    formatted
+                    formattedCode
                 );
 
-                res.json({
+                return res.status(200).json({
                     status: true,
-                    code: formatted,
+                    code: formattedCode,
                 });
             } catch (err) {
                 console.log(
-                    "❌ Pair Error:",
+                    "❌ Pair Code Error:",
                     err
                 );
+
+                removeFile(sessionDir);
 
                 return res.status(500).json({
                     status: false,
                     message:
-                        "Cannot generate pairing code",
+                        "Failed to generate pair code",
+                    error: String(err),
                 });
             }
         }
@@ -242,17 +250,25 @@ router.get("/", async (req, res) => {
                         let sessionData = {};
 
                         for (const file of files) {
-                            const path =
+                            const filePath =
                                 `${sessionDir}/${file}`;
 
-                            const data =
-                                fs.readFileSync(
-                                    path,
-                                    "utf8"
-                                );
+                            try {
+                                const data =
+                                    fs.readFileSync(
+                                        filePath,
+                                        "utf8"
+                                    );
 
-                            sessionData[file] =
-                                JSON.parse(data);
+                                sessionData[
+                                    file
+                                ] =
+                                    JSON.parse(
+                                        data
+                                    );
+                            } catch {
+                                continue;
+                            }
                         }
 
                         await Session.findOneAndUpdate(
@@ -264,7 +280,8 @@ router.get("/", async (req, res) => {
 
                                 sessionId:
                                     state.creds
-                                        .me?.id,
+                                        .me?.id ||
+                                    number,
 
                                 sessionData,
                             },
@@ -287,7 +304,7 @@ router.get("/", async (req, res) => {
                         await sock.sendMessage(
                             jid,
                             {
-                                text: "✅ Session saved successfully in MongoDB",
+                                text: "✅ Session Saved Successfully",
                             }
                         );
 
@@ -295,14 +312,14 @@ router.get("/", async (req, res) => {
                             "📨 Message Sent"
                         );
 
-                        await delay(5000);
+                        await delay(3000);
 
                         removeFile(
                             sessionDir
                         );
 
                         console.log(
-                            "🧹 Session Deleted"
+                            "🧹 Session Folder Deleted"
                         );
                     } catch (err) {
                         console.log(
@@ -336,10 +353,6 @@ router.get("/", async (req, res) => {
                         removeFile(
                             sessionDir
                         );
-                    } else {
-                        console.log(
-                            "🔄 Reconnecting..."
-                        );
                     }
                 }
             }
@@ -353,15 +366,15 @@ router.get("/", async (req, res) => {
         return res.status(500).json({
             status: false,
             message:
-                "Internal server error",
+                "Internal Server Error",
             error: String(err),
         });
     }
 });
 
-/* =====================================
+/* =========================================
    Error Handlers
-===================================== */
+========================================= */
 
 process.on(
     "uncaughtException",
