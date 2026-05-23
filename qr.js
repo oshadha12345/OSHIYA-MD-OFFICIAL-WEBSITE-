@@ -1,7 +1,9 @@
-
 import express from "express";
 import fs from "fs";
 import pino from "pino";
+import mongoose from "mongoose";
+import QRCode from "qrcode";
+
 import {
     makeWASocket,
     useMultiFileAuthState,
@@ -11,207 +13,378 @@ import {
     jidNormalizedUser,
     fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
-import QRCode from "qrcode";
-import { upload } from "./mega.js";
 
 const router = express.Router();
+
+/* =========================
+   MongoDB Connection
+========================= */
+
+mongoose.connect(
+    "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/?appName=oshiyamd",
+);
+
+mongoose.connection.on("connected", () => {
+    console.log("✅ MongoDB Connected");
+});
+
+mongoose.connection.on("error", (err) => {
+    console.log("❌ MongoDB Error:", err);
+});
+
+/* =========================
+   Session Schema
+========================= */
+
+const sessionSchema = new mongoose.Schema({
+    sessionId: String,
+    userJid: String,
+    creds: Object,
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+});
+
+const Session = mongoose.model("qr_sessions", sessionSchema);
+
+/* =========================
+   Helpers
+========================= */
 
 function removeFile(FilePath) {
     try {
         if (!fs.existsSync(FilePath)) return false;
-        fs.rmSync(FilePath, { recursive: true, force: true });
+
+        fs.rmSync(FilePath, {
+            recursive: true,
+            force: true,
+        });
     } catch (e) {
         console.error("Error removing file:", e);
     }
 }
 
-function getMegaFileId(url) {
-    try {
-        const match = url.match(/\/file\/([^#]+#[^\/]+)/);
-        return match ? match[1] : null;
-    } catch (error) {
-        return null;
-    }
-}
+/* =========================
+   Route
+========================= */
 
 router.get("/", async (req, res) => {
     const sessionId =
-        Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        Date.now().toString() +
+        Math.random().toString(36).substr(2, 9);
+
     const dirs = `./qr_sessions/session_${sessionId}`;
 
     if (!fs.existsSync("./qr_sessions")) {
-        fs.mkdirSync("./qr_sessions", { recursive: true });
+        fs.mkdirSync("./qr_sessions", {
+            recursive: true,
+        });
     }
 
     await removeFile(dirs);
 
     async function initiateSession() {
-        const { state, saveCreds } = await useMultiFileAuthState(dirs);
+        const { state, saveCreds } =
+            await useMultiFileAuthState(dirs);
 
         try {
-            const { version, isLatest } = await fetchLatestBaileysVersion();
+            const { version } =
+                await fetchLatestBaileysVersion();
 
             let responseSent = false;
 
             const KnightBot = makeWASocket({
                 version,
+
                 auth: {
                     creds: state.creds,
+
                     keys: makeCacheableSignalKeyStore(
                         state.keys,
-                        pino({ level: "fatal" }).child({ level: "fatal" }),
+
+                        pino({
+                            level: "fatal",
+                        }).child({
+                            level: "fatal",
+                        }),
                     ),
                 },
+
                 printQRInTerminal: false,
-                logger: pino({ level: "fatal" }).child({ level: "fatal" }),
+
+                logger: pino({
+                    level: "fatal",
+                }).child({
+                    level: "fatal",
+                }),
+
                 browser: Browsers.windows("Chrome"),
+
                 markOnlineOnConnect: false,
+
                 generateHighQualityLinkPreview: false,
+
                 defaultQueryTimeoutMs: 60000,
+
                 connectTimeoutMs: 60000,
+
                 keepAliveIntervalMs: 30000,
+
                 retryRequestDelayMs: 250,
+
                 maxRetries: 5,
             });
 
-            KnightBot.ev.on("connection.update", async (update) => {
-                const { connection, lastDisconnect, isNewLogin, isOnline, qr } =
-                    update;
+            /* =========================
+               Connection Update
+            ========================= */
 
-                if (qr && !responseSent) {
-                    console.log(
-                        "🟢 QR Code Generated! Scan it with your WhatsApp app.",
-                    );
+            KnightBot.ev.on(
+                "connection.update",
+                async (update) => {
+                    const {
+                        connection,
+                        lastDisconnect,
+                        isNewLogin,
+                        isOnline,
+                        qr,
+                    } = update;
 
-                    try {
-                        const qrDataURL = await QRCode.toDataURL(qr, {
-                            errorCorrectionLevel: "M",
-                            type: "image/png",
-                            quality: 0.92,
-                            margin: 1,
-                            color: {
-                                dark: "#000000",
-                                light: "#FFFFFF",
-                            },
-                        });
+                    /* =========================
+                       QR CODE
+                    ========================= */
 
-                        if (!responseSent) {
+                    if (qr && !responseSent) {
+                        console.log("🟢 QR Code Generated");
+
+                        try {
+                            const qrDataURL =
+                                await QRCode.toDataURL(qr, {
+                                    errorCorrectionLevel: "M",
+
+                                    type: "image/png",
+
+                                    quality: 0.92,
+
+                                    margin: 1,
+
+                                    color: {
+                                        dark: "#000000",
+
+                                        light: "#FFFFFF",
+                                    },
+                                });
+
                             responseSent = true;
-                            console.log("QR Code sent to client");
+
                             res.send({
                                 qr: qrDataURL,
+
                                 message:
-                                    "QR Code Generated! Scan it with your WhatsApp app.",
+                                    "QR Code Generated Successfully",
+
                                 instructions: [
-                                    "1. Open WhatsApp on your phone",
-                                    "2. Go to Settings > Linked Devices",
-                                    '3. Tap "Link a Device"',
-                                    "4. Scan the QR code above",
+                                    "1. Open WhatsApp",
+
+                                    "2. Linked Devices",
+
+                                    "3. Link A Device",
+
+                                    "4. Scan QR",
                                 ],
                             });
-                        }
-                    } catch (qrError) {
-                        console.error("Error generating QR code:", qrError);
-                        if (!responseSent) {
+                        } catch (err) {
+                            console.log(
+                                "❌ QR Generate Error:",
+                                err,
+                            );
+
                             responseSent = true;
+
                             res.status(500).send({
-                                code: "Failed to generate QR code",
+                                code: "Failed To Generate QR",
                             });
                         }
                     }
-                }
 
-                if (connection === "open") {
-                    console.log("✅ Connected successfully!");
-                    console.log("📱 Uploading session to MEGA...");
+                    /* =========================
+                       CONNECTED
+                    ========================= */
 
-                    try {
-                        const credsPath = dirs + "/creds.json";
-                        const megaUrl = await upload(
-                            credsPath,
-                            `creds_qr_${sessionId}.json`,
+                    if (connection === "open") {
+                        console.log(
+                            "✅ WhatsApp Connected",
                         );
-                        const megaFileId = getMegaFileId(megaUrl);
 
-                        if (megaFileId) {
-                            console.log(
-                                "✅ Session uploaded to MEGA. File ID:",
-                                megaFileId,
+                        try {
+                            const credsPath =
+                                dirs + "/creds.json";
+
+                            const credsData = JSON.parse(
+                                fs.readFileSync(credsPath),
                             );
 
-                            const userJid = jidNormalizedUser(
-                                KnightBot.authState.creds.me?.id || "",
-                            );
-                            if (userJid) {
-                                await KnightBot.sendMessage(userJid, {
-                                    text: `${megaFileId}`,
+                            const userJid =
+                                jidNormalizedUser(
+                                    KnightBot.authState.creds
+                                        .me?.id || "",
+                                );
+
+                            const existing =
+                                await Session.findOne({
+                                    sessionId,
                                 });
+
+                            if (existing) {
+                                await Session.updateOne(
+                                    {
+                                        sessionId,
+                                    },
+
+                                    {
+                                        userJid,
+
+                                        creds: credsData,
+                                    },
+                                );
+
                                 console.log(
-                                    "📄 MEGA file ID sent successfully",
+                                    "✅ Session Updated",
                                 );
                             } else {
-                                console.log("❌ Could not determine user JID");
+                                await Session.create({
+                                    sessionId,
+
+                                    userJid,
+
+                                    creds: credsData,
+                                });
+
+                                console.log(
+                                    "✅ Session Saved To MongoDB",
+                                );
                             }
-                        } else {
-                            console.log("❌ Failed to upload to MEGA");
+
+                            if (userJid) {
+                                await KnightBot.sendMessage(
+                                    userJid,
+                                    {
+                                        text: "✅ Session Saved In MongoDB Successfully",
+                                    },
+                                );
+
+                                console.log(
+                                    "📄 Confirmation message sent",
+                                );
+                            }
+
+                            console.log(
+                                "🧹 Cleaning Session Files",
+                            );
+
+                            await delay(1000);
+
+                            removeFile(dirs);
+
+                            console.log(
+                                "✅ Session Folder Deleted",
+                            );
+
+                            await delay(2000);
+
+                            process.exit(0);
+                        } catch (error) {
+                            console.log(
+                                "❌ MongoDB Save Error:",
+                                error,
+                            );
+
+                            removeFile(dirs);
+
+                            process.exit(1);
                         }
-
-                        console.log("🧹 Cleaning up session...");
-                        await delay(1000);
-                        removeFile(dirs);
-                        console.log("✅ Session cleaned up successfully");
-                        console.log("🎉 Process completed successfully!");
-
-                        console.log("🛑 Shutting down application...");
-                        await delay(2000);
-                        process.exit(0);
-                    } catch (error) {
-                        console.error("❌ Error uploading to MEGA:", error);
-                        removeFile(dirs);
-                        await delay(2000);
-                        process.exit(1);
                     }
-                }
 
-                if (isNewLogin) {
-                    console.log("🔐 New login via QR code");
-                }
+                    /* =========================
+                       LOGIN EVENTS
+                    ========================= */
 
-                if (isOnline) {
-                    console.log("📶 Client is online");
-                }
-
-                if (connection === "close") {
-                    const statusCode =
-                        lastDisconnect?.error?.output?.statusCode;
-
-                    if (statusCode === 401) {
+                    if (isNewLogin) {
                         console.log(
-                            "❌ Logged out from WhatsApp. Need to generate new QR code.",
+                            "🔐 New Login Via QR",
                         );
-                    } else {
-                        console.log("🔁 Connection closed — restarting...");
-                        initiateSession();
                     }
-                }
-            });
 
-            KnightBot.ev.on("creds.update", saveCreds);
+                    if (isOnline) {
+                        console.log(
+                            "📶 Client Online",
+                        );
+                    }
+
+                    /* =========================
+                       CLOSE
+                    ========================= */
+
+                    if (connection === "close") {
+                        const statusCode =
+                            lastDisconnect?.error?.output
+                                ?.statusCode;
+
+                        if (statusCode === 401) {
+                            console.log(
+                                "❌ Logged Out",
+                            );
+                        } else {
+                            console.log(
+                                "🔁 Reconnecting...",
+                            );
+
+                            initiateSession();
+                        }
+                    }
+                },
+            );
+
+            KnightBot.ev.on(
+                "creds.update",
+                saveCreds,
+            );
+
+            /* =========================
+               TIMEOUT
+            ========================= */
 
             setTimeout(() => {
                 if (!responseSent) {
                     responseSent = true;
-                    res.status(408).send({ code: "QR generation timeout" });
+
+                    res.status(408).send({
+                        code: "QR Generation Timeout",
+                    });
+
                     removeFile(dirs);
-                    setTimeout(() => process.exit(1), 2000);
+
+                    setTimeout(
+                        () => process.exit(1),
+                        2000,
+                    );
                 }
             }, 30000);
         } catch (err) {
-            console.error("Error initializing session:", err);
+            console.log(
+                "❌ Initialization Error:",
+                err,
+            );
+
             if (!res.headersSent) {
-                res.status(503).send({ code: "Service Unavailable" });
+                res.status(503).send({
+                    code: "Service Unavailable",
+                });
             }
+
             removeFile(dirs);
+
             setTimeout(() => process.exit(1), 2000);
         }
     }
@@ -219,8 +392,13 @@ router.get("/", async (req, res) => {
     await initiateSession();
 });
 
+/* =========================
+   Error Handler
+========================= */
+
 process.on("uncaughtException", (err) => {
     let e = String(err);
+
     if (e.includes("conflict")) return;
     if (e.includes("not-authorized")) return;
     if (e.includes("Socket connection timeout")) return;
@@ -228,16 +406,24 @@ process.on("uncaughtException", (err) => {
     if (e.includes("Connection Closed")) return;
     if (e.includes("Timed Out")) return;
     if (e.includes("Value not found")) return;
+
     if (
         e.includes("Stream Errored") ||
-        e.includes("Stream Errored (restart required)")
+        e.includes(
+            "Stream Errored (restart required)",
+        )
     )
         return;
-    if (e.includes("statusCode: 515") || e.includes("statusCode: 503")) return;
-    console.log("Caught exception: ", err);
+
+    if (
+        e.includes("statusCode: 515") ||
+        e.includes("statusCode: 503")
+    )
+        return;
+
+    console.log("Caught exception:", err);
+
     process.exit(1);
 });
 
 export default router;
-
-  
