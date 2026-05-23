@@ -21,8 +21,8 @@
     "express": "^5.2.1",
     "mongoose": "^9.6.2",
     "path": "^0.12.7",
-    "phone": "3.1.55",
-    "pino": "9.5.0",
+    "phone": "3.1.71",
+    "pino": "10.3.1",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0"
   }
