@@ -1,557 +1,330 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DANUWA-MD SESSION</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
-    <style>
-      :root {
-        --primary-color: #000000;
-        --secondary-color: #ffffff;
-        --accent-color: #f0f0f0;
-        --text-color: #000000;
-        --background-color: #ffffff;
-        --hover-color: #f5f5f5;
-        --border-color: rgba(0, 0, 0, 0.1);
-      }
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OSHIYA-MD | ULTIMATE PREMIUM HUB</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+<style>
+:root {
+  --primary-glow: #00d2ff;
+  --secondary-glow: #3a7bd5;
+  --bg-dark: #020202;
+  --glass: rgba(255, 255, 255, 0.05);
+  --accent: #ff00cc;
+  --neon-blue: #00f2ff;
+  --wa-green: #25d366;
+  --premium-gradient: linear-gradient(135deg, #ff00cc, #3333ff, #00f2ff);
+}
 
-      body {
-        font-family: "Inter", sans-serif;
-        background: var(--background-color);
-        color: var(--text-color);
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 15px;
-      }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
 
-      .container {
-        width: 100%;
-        max-width: 450px;
-        background: var(--background-color);
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-        border: 1px solid var(--border-color);
-      }
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg-dark);
+  color: #fff;
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-      .header {
-        text-align: center;
-        margin-bottom: 25px;
-      }
+/* --- PREMIUM PRELOADER --- */
+#preloader {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #000; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; z-index: 10000;
+  transition: 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-      .logo {
-        width: 70px;
-        height: 70px;
-        margin: 0 auto 16px;
-        background: var(--primary-color);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        color: white;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-      }
+.loader-content { text-align: center; position: relative; }
 
-      .title {
-        font-size: 24px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: var(--primary-color);
-      }
+.loader-logo {
+  font-family: 'Orbitron', sans-serif; font-size: 3.5rem; font-weight: 900;
+  color: #fff; letter-spacing: 15px; margin-bottom: 20px;
+  text-shadow: 0 0 20px var(--accent);
+  animation: logoGlitch 2s infinite;
+}
 
-      .subtitle {
-        font-size: 14px;
-        color: rgba(0, 0, 0, 0.7);
-        margin-bottom: 20px;
-      }
+@keyframes logoGlitch {
+  0% { transform: skew(0deg); text-shadow: 2px 0 var(--neon-blue), -2px 0 var(--accent); }
+  20% { transform: skew(2deg); }
+  21% { transform: skew(-10deg); }
+  22% { transform: skew(0deg); }
+  100% { transform: skew(0deg); text-shadow: 5px 0 var(--neon-blue), -5px 0 var(--accent); }
+}
 
-      .social-icons {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        margin-bottom: 20px;
-      }
+.loading-bar-container {
+  width: 250px; height: 4px; background: rgba(255,255,255,0.1);
+  border-radius: 10px; overflow: hidden; position: relative;
+}
 
-      .social-icons a {
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 18px;
-        text-decoration: none;
-        transition: all 0.3s ease;
-      }
+.loading-bar-fill {
+  width: 0%; height: 100%; background: var(--premium-gradient);
+  box-shadow: 0 0 15px var(--neon-blue);
+  animation: fillProgress 2.5s ease-in-out forwards;
+}
 
-      .social-icons a.youtube {
-        background: #ff0000;
-      }
-      .social-icons a.telegram {
-        background: #0088cc;
-      }
-      .social-icons a.whatsapp {
-        background: #0cfa10;
-      }
-      .social-icons a.github {
-        background: #333;
-      }
+@keyframes fillProgress { 0% { width: 0%; } 100% { width: 100%; } }
 
-      .social-icons a:hover {
-        transform: scale(1.1);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      }
+.loading-text {
+  margin-top: 15px; font-family: 'Orbitron'; font-size: 10px;
+  letter-spacing: 4px; color: var(--neon-blue); text-transform: uppercase;
+  animation: pulse 1.5s infinite;
+}
 
-      /* Toggle Switch Styles */
-      .toggle-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 20px;
-        background: var(--hover-color);
-        border-radius: 12px;
-        padding: 4px;
-        border: 1px solid var(--border-color);
-      }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-      .toggle-option {
-        flex: 1;
-        padding: 10px 16px;
-        text-align: center;
-        cursor: pointer;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        position: relative;
-      }
+/* --- BACKGROUND --- */
+.bg-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(circle at 50% 50%, #0a0a0a 0%, #000 100%);
+  z-index: -1;
+}
 
-      .toggle-option.active {
-        background: var(--primary-color);
-        color: var(--secondary-color);
-      }
+.stars {
+  position: absolute; width: 100%; height: 100%;
+  background: transparent url('https://www.transparenttextures.com/patterns/stardust.png') repeat;
+  animation: moveStars 120s linear infinite; opacity: 0.4;
+}
 
-      .toggle-option:not(.active) {
-        color: var(--text-color);
-      }
+@keyframes moveStars { from { background-position: 0 0; } to { background-position: 10000px 5000px; } }
 
-      .toggle-option:hover:not(.active) {
-        background: var(--background-color);
-      }
-      .copy-btn {
-        width: 100%;
-        padding: 12px;
-        background: var(--hover-color);
-        border: 1.5px solid var(--border-color);
-        border-radius: 12px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-      }
+/* --- MAIN CONTAINER --- */
+.container {
+  width: 92%; max-width: 460px;
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 40px; padding: 45px 30px;
+  box-shadow: 0 0 50px rgba(0, 242, 255, 0.1);
+  text-align: center; margin-top: 60px; position: relative;
+}
 
-      .copy-btn:hover {
-        background: var(--background-color);
-        border-color: var(--primary-color);
-      }
+.container::before {
+  content: ""; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+  background: var(--premium-gradient); border-radius: 42px;
+  z-index: -1; opacity: 0.3;
+}
 
-      .input-group {
-        margin-bottom: 20px;
-        transition: all 0.3s ease;
-      }
+.inner-card { background: #000; border-radius: 35px; padding: 30px 20px; }
 
-      .input-group.hidden {
-        display: none;
-      }
+.profile-area { width: 115px; height: 115px; margin: 0 auto 15px; }
+.profile-area img { 
+  width: 100%; height: 100%; border-radius: 50%; 
+  border: 2px solid var(--neon-blue); padding: 5px;
+  box-shadow: 0 0 20px var(--neon-blue);
+}
 
-      .input-label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 500;
-        font-size: 13px;
-      }
+.title { 
+  font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900;
+  background: var(--premium-gradient); -webkit-background-clip: text; 
+  -webkit-text-fill-color: transparent;
+}
 
-      .input-field {
-        width: 100%;
-        padding: 12px;
-        border: 1.5px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--background-color);
-        color: var(--text-color);
-        font-size: 15px;
-      }
+.status-badge {
+  display: inline-block; padding: 6px 16px; border-radius: 50px;
+  background: rgba(0, 242, 255, 0.1); color: var(--neon-blue);
+  font-size: 10px; font-weight: bold; margin: 15px 0 25px;
+  border: 1px solid var(--neon-blue); letter-spacing: 1px;
+}
 
-      .input-field:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
-      }
+/* --- SWITCHER --- */
+.mode-switch {
+  display: flex; background: rgba(255, 255, 255, 0.05); padding: 6px; 
+  border-radius: 20px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1);
+}
+.mode-btn {
+  flex: 1; padding: 12px; border: none; border-radius: 15px; 
+  background: transparent; color: #888; font-family: 'Orbitron'; font-size: 10px; cursor: pointer;
+}
+.mode-btn.active { background: var(--premium-gradient); color: #fff; box-shadow: 0 0 15px rgba(255,0,204,0.4); }
 
-      .generate-btn {
-        width: 100%;
-        padding: 12px;
-        background: var(--primary-color);
-        border: none;
-        border-radius: 12px;
-        color: var(--secondary-color);
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-bottom: 16px;
-      }
+/* --- INPUTS --- */
+.input-field { 
+  width: 100%; background: #0a0a0a; border: 1px solid #333; padding: 18px; 
+  border-radius: 18px; color: #fff; font-size: 16px; margin-bottom: 20px; outline: none; text-align: center;
+}
+.input-field:focus { border-color: var(--neon-blue); box-shadow: 0 0 15px rgba(0,242,255,0.2); }
 
-      .generate-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
+.main-btn { 
+  width: 100%; padding: 18px; border: none; border-radius: 18px; 
+  background: var(--premium-gradient); color: #fff; font-weight: bold;
+  font-family: 'Orbitron'; cursor: pointer; transition: 0.3s;
+}
 
-      .generate-btn.hidden {
-        display: none;
-      }
+/* --- DISPLAY BOX --- */
+.display-box {
+  margin-top: 25px; padding: 25px; background: rgba(255,255,255,0.02); 
+  border-radius: 25px; border: 1px dashed #444; min-height: 120px;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+}
 
-      .code-display {
-        background: var(--hover-color);
-        padding: 12px;
-        border-radius: 12px;
-        text-align: center;
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 16px;
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1.5px solid var(--border-color);
-      }
+/* COPY CODE STYLE */
+#pairOutput span {
+  cursor: pointer; transition: 0.3s; padding: 5px 15px; border-radius: 10px;
+}
+#pairOutput span:active { background: rgba(0, 242, 255, 0.2); transform: scale(0.9); }
 
-      .qr-display {
-        background: var(--hover-color);
-        padding: 30px;
-        border-radius: 12px;
-        text-align: center;
-        margin-bottom: 16px;
-        border: 1.5px solid var(--border-color);
-        display: none;
-      }
+/* --- FLOATING --- */
+.floating-btns { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 15px; z-index: 100; }
+.f-btn { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; cursor: pointer; transition: 0.3s; }
+.wa-btn { background: #25d366; }
+.mu-btn { background: var(--accent); }
 
-      .qr-image {
-        max-width: 280px;
-        max-height: 280px;
-        margin: 0 auto 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-      }
+#loading { color: var(--neon-blue); font-family: 'Orbitron'; font-size: 12px; }
+</style>
+</head>
+<body>
 
-      .qr-instructions {
-        font-size: 13px;
-        color: rgba(0, 0, 0, 0.7);
-        line-height: 1.5;
-      }
+<div id="preloader">
+  <div class="loader-content">
+    <div class="loader-logo">OSHIYA</div>
+    <div class="loading-bar-container">
+      <div class="loading-bar-fill"></div>
+    </div>
+    <div class="loading-text">Initializing Secure Server...</div>
+  </div>
+</div>
 
-      .success-message {
-        color: #000aff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-size: 16px;
-      }
+<div class="bg-canvas"><div class="stars"></div></div>
 
-      .error-message {
-        color: #e74c3c;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-size: 14px;
-      }
+<div class="container">
+  <div class="inner-card">
+    <div class="profile-area">
+      <img src="https://raw.githubusercontent.com/oshadha12345/images/refs/heads/main/20251222_040815.jpg" alt="OSHIYA">
+    </div>
+    <h1 class="title">OSHIYA PREMIUM</h1>
+    <div class="status-badge"><i class="fas fa-crown"></i> VIP ACCESS GRANTED</div>
 
-      .loading {
-        display: none;
-        text-align: center;
-        margin: 16px 0;
-      }
-
-      .loading i {
-        font-size: 24px;
-        color: var(--primary-color);
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      .footer {
-        text-align: center;
-        margin-top: 20px;
-        font-size: 12px;
-        color: rgba(0, 0, 0, 0.5);
-      }
-
-      @media (max-width: 480px) {
-        .container {
-          padding: 20px;
-          border-radius: 12px;
-          max-width: 400px;
-        }
-
-        .code-display {
-          font-size: 16px;
-          min-height: 50px;
-        }
-
-        .qr-image {
-          max-width: 240px;
-          max-height: 240px;
-        }
-
-        .qr-display {
-          padding: 20px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <div class="logo"><i class="fas fa-robot"></i></div>
-        <h1 class="title">DANUWA-MD</h1>
-        <p class="subtitle">Link your WhatsApp device</p>
-        <div class="social-icons">
-          <a
-            href=""
-            target="_blank"
-            class="youtube"
-            ><i class="fab fa-youtube"></i
-          ></a>
-          <a
-            href=""
-            target="_blank"
-            class="telegram"
-            ><i class="fab fa-facebook"></i
-          ></a>
-          <a href="" target="_blank" class="whatsapp"
-            ><i class="fab fa-whatsapp"></i
-          ></a>
-          <a
-            href=""
-            target="_blank"
-            class="github"
-            ><i class="fab fa-github"></i
-          ></a>
-        </div>
-      </div>
-
-      <!-- Toggle Switch -->
-      <div class="toggle-container">
-        <div class="toggle-option active" data-mode="pair">
-          <i class="fas fa-key"></i> Pair Code
-        </div>
-        <div class="toggle-option" data-mode="qr">
-          <i class="fas fa-qrcode"></i> QR Code
-        </div>
-      </div>
-
-      <div class="input-group" id="inputGroup">
-        <label class="input-label"
-          >Enter your WhatsApp number with country code</label
-        >
-        <input
-          type="text"
-          id="mobileNumber"
-          class="input-field"
-          placeholder="+94774915917"
-          pattern="[+][0-9]{10,}"
-          title="Please enter country code starting with + followed by number"
-        />
-      </div>
-
-      <button class="generate-btn" id="submit">
-        <i class="fas fa-key"></i> Generate Pair Code
-      </button>
-
-      <div class="loading" id="loading">
-        <i class="fas fa-spinner"></i>
-      </div>
-
-      <div class="code-display" id="codeDisplay">
-        Your pair code will appear here
-      </div>
-
-      <div class="qr-display" id="qrDisplay">
-        <img id="qrImage" class="qr-image" src="" alt="QR Code" />
-        <div class="qr-instructions" id="qrInstructions">
-          Scan this QR code with your WhatsApp app
-        </div>
-      </div>
-
-      <button class="copy-btn" id="copy" onclick="copyCode()">
-        <i class="fas fa-copy"></i> Copy Code
-      </button>
-
-      <div class="footer">
-        <p>© 2025 DANUWA-MD. All rights reserved.</p>
-      </div>
+    <div class="mode-switch">
+      <button class="mode-btn active" id="modePair" onclick="toggleMode('PAIR')">PAIRING CODE</button>
+      <button class="mode-btn" id="modeQR" onclick="toggleMode('QR')">QR SCANNER</button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>
-    <script>
-      let currentMode = "pair";
+    <div id="pairSection">
+      <input type="tel" id="numberInput" class="input-field" placeholder="94756xxxxxxx">
+      <button class="main-btn" id="genPairBtn"><i class="fas fa-bolt"></i> GENERATE CODE</button>
+    </div>
 
-      // Toggle functionality
-      document.querySelectorAll(".toggle-option").forEach((option) => {
-        option.addEventListener("click", function () {
-          const mode = this.dataset.mode;
-          if (mode === currentMode) return;
+    <div id="qrSection" style="display: none;">
+      <button class="main-btn" id="genQRBtn"><i class="fas fa-qrcode"></i> GET MASTER QR</button>
+    </div>
 
-          // Update active state
-          document
-            .querySelectorAll(".toggle-option")
-            .forEach((opt) => opt.classList.remove("active"));
-          this.classList.add("active");
+    <div class="display-box" id="resultBox">
+       <div id="loading" style="display:none;"><i class="fas fa-circle-notch fa-spin"></i> ENCRYPTING...</div>
+       <div id="qrOutput" style="display:none;" class="qr-frame"></div>
+       <div id="pairOutput" style="display:none;">
+          <p style="font-size: 10px; color: #666; margin-bottom: 10px;">TAP CODE TO COPY</p>
+          <span id="copyCode" onclick="copyToClipboard()" style="color: var(--neon-blue); font-size: 32px; font-weight: 900; letter-spacing: 5px; font-family: 'Orbitron'; text-shadow: 0 0 15px var(--neon-blue);">--------</span>
+       </div>
+       <div id="placeholderText" style="color: #444; font-size: 11px; font-family: 'Orbitron';">READY FOR LINKING</div>
+    </div>
+  </div>
+</div>
 
-          // Update mode
-          currentMode = mode;
+<div class="floating-btns">
+  <div class="f-btn mu-btn" id="musicToggle"><i class="fas fa-music"></i></div>
+  <a href="https://wa.me/+94756599952" target="_blank" class="f-btn wa-btn"><i class="fab fa-whatsapp"></i></a>
+</div>
 
-          // Update button and input visibility
-          const submitBtn = document.getElementById("submit");
-          const inputGroup = document.getElementById("inputGroup");
+<audio id="bgMusic" loop src="https://github.com/oshadha12345/images/raw/refs/heads/main/Voice/Voce%20na%20mira%20(slowed_tiktok%20vers.)%20-%20hwungii_%20dj%20vjk1%20%5Bedit%20audio%5D(MP3_160K).mp3"></audio>
 
-          if (mode === "pair") {
-            submitBtn.innerHTML =
-              '<i class="fas fa-key"></i> Generate Pair Code';
-            submitBtn.classList.remove("hidden");
-            inputGroup.classList.remove("hidden");
-          } else {
-            submitBtn.classList.add("hidden");
-            inputGroup.classList.add("hidden");
-            // Auto-generate QR code when QR mode is selected
-            generateQRCode();
-          }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+<script>
+// --- PAGE LOAD ---
+window.onload = () => {
+    setTimeout(() => {
+        const loader = document.getElementById('preloader');
+        loader.style.opacity = '0';
+        loader.style.transform = 'translateY(-100%)';
+        setTimeout(() => loader.style.display = 'none', 1000);
+    }, 2800); // 2.8 seconds for smooth premium feel
+};
 
-          // Clear displays
-          document.getElementById("codeDisplay").innerHTML =
-            "Your pair code will appear here";
-          document.getElementById("qrDisplay").style.display = "none";
-          document.getElementById("codeDisplay").style.display = "flex";
-        });
-      });
+// --- COPY FUNCTION ---
+function copyToClipboard() {
+    const codeText = document.getElementById('copyCode').innerText;
+    if(codeText === "--------") return;
+    
+    navigator.clipboard.writeText(codeText).then(() => {
+        const span = document.getElementById('copyCode');
+        const originalColor = span.style.color;
+        span.innerText = "COPIED!";
+        span.style.color = "#25d366";
+        
+        setTimeout(() => {
+            span.innerText = codeText;
+            span.style.color = originalColor;
+        }, 1500);
+    });
+}
 
-      async function generateQRCode() {
-        const codeDisplay = document.getElementById("codeDisplay");
-        const qrDisplay = document.getElementById("qrDisplay");
-        const loadingSpinner = document.getElementById("loading");
+// --- LOGIC ---
+function toggleMode(mode) {
+    const isPair = mode === 'PAIR';
+    document.getElementById('modePair').classList.toggle('active', isPair);
+    document.getElementById('modeQR').classList.toggle('active', !isPair);
+    document.getElementById('pairSection').style.display = isPair ? 'block' : 'none';
+    document.getElementById('qrSection').style.display = isPair ? 'none' : 'block';
+    resetDisplay();
+}
 
-        loadingSpinner.style.display = "block";
-        codeDisplay.innerHTML = "";
-        qrDisplay.style.display = "none";
+function resetDisplay() {
+    document.getElementById('qrOutput').style.display = 'none';
+    document.getElementById('pairOutput').style.display = 'none';
+    document.getElementById('placeholderText').style.display = 'block';
+}
 
-        try {
-          const response = await axios("/qr");
+document.getElementById('genPairBtn').onclick = async () => {
+    const num = document.getElementById('numberInput').value.replace(/[^0-9]/g,"");
+    if(!num) return alert("Enter Number!");
 
-          if (response.data.qr) {
-            document.getElementById("qrImage").src = response.data.qr;
-            document.getElementById("qrInstructions").innerHTML =
-              response.data.instructions.join("<br>");
-            qrDisplay.style.display = "block";
-            codeDisplay.style.display = "none";
-          } else {
-            codeDisplay.innerHTML =
-              '<div class="error-message"><i class="fas fa-exclamation-circle"></i> Failed to generate QR code</div>';
-            codeDisplay.style.display = "flex";
-          }
-        } catch (error) {
-          console.error("Error generating QR code:", error);
-          codeDisplay.innerHTML =
-            '<div class="error-message"><i class="fas fa-exclamation-circle"></i> Error generating QR code. Please try again.</div>';
-          codeDisplay.style.display = "flex";
-        } finally {
-          loadingSpinner.style.display = "none";
-        }
-      }
+    showLoading();
+    try {
+        const res = await axios.get(`/pair?number=${num}`);
+        document.getElementById('copyCode').innerText = res.data.code;
+        document.getElementById('pairOutput').style.display = 'block';
+    } catch (e) {
+        alert("Server Error!");
+        document.getElementById('placeholderText').style.display = 'block';
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+};
 
-      document.getElementById("submit").addEventListener("click", async (e) => {
-        e.preventDefault();
+document.getElementById('genQRBtn').onclick = async () => {
+    showLoading();
+    try {
+        const res = await axios.get('/qr');
+        document.getElementById('qrOutput').innerHTML = `<img src="${res.data.qr}" width="180" style="border-radius:10px;">`;
+        document.getElementById('qrOutput').style.display = 'block';
+    } catch (e) {
+        alert("Error!");
+        document.getElementById('placeholderText').style.display = 'block';
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+};
 
-        const mobileNumberInput = document.getElementById("mobileNumber");
-        const codeDisplay = document.getElementById("codeDisplay");
-        const qrDisplay = document.getElementById("qrDisplay");
-        const loadingSpinner = document.getElementById("loading");
+function showLoading() {
+    document.getElementById('placeholderText').style.display = 'none';
+    document.getElementById('qrOutput').style.display = 'none';
+    document.getElementById('pairOutput').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+}
 
-        const mobileNumber = mobileNumberInput.value.trim();
-        if (!mobileNumber) {
-          codeDisplay.innerHTML =
-            '<div class="error-message"><i class="fas fa-exclamation-circle"></i> Please enter your WhatsApp number</div>';
-          return;
-        }
+// Music Logic
+const mBtn = document.getElementById('musicToggle');
+const audio = document.getElementById('bgMusic');
+mBtn.onclick = () => {
+    if(audio.paused) { audio.play(); mBtn.style.boxShadow = "0 0 20px #ff00cc"; }
+    else { audio.pause(); mBtn.style.boxShadow = "none"; }
+};
+</script>
 
-        loadingSpinner.style.display = "block";
-        codeDisplay.innerHTML = "";
-        qrDisplay.style.display = "none";
-
-        try {
-          const response = await axios(
-            `/pair?number=${mobileNumber.replace(/[^0-9]/g, "")}`,
-          );
-
-          const code = response.data.code || "Service Unavailable";
-          if (code === "Service Unavailable") {
-            codeDisplay.innerHTML =
-              '<div class="error-message"><i class="fas fa-exclamation-circle"></i> Service Unavailable</div>';
-          } else {
-            codeDisplay.innerHTML = `<div class="success-message"><i class="fas fa-check-circle"></i> CODE: ${code}</div>`;
-          }
-          codeDisplay.style.display = "flex";
-        } catch (error) {
-          console.error("Error generating code:", error);
-          codeDisplay.innerHTML =
-            '<div class="error-message"><i class="fas fa-exclamation-circle"></i> Error generating code. Please try again.</div>';
-          codeDisplay.style.display = "flex";
-        } finally {
-          loadingSpinner.style.display = "none";
-        }
-      });
-      function copyCode() {
-        const codeDisplay = document.getElementById("codeDisplay").innerText;
-        const code = codeDisplay.replace("CODE: ", "");
-        navigator.clipboard
-          .writeText(code)
-          .then(() => {
-            const copyBtn = document.getElementById("copy");
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            setTimeout(() => {
-              copyBtn.innerHTML = originalText;
-            }, 2000);
-          })
-          .catch((err) => {
-            console.error("Failed to copy text: ", err);
-          });
-      }
-    </script>
-  </body>
-</html>
+</body>
+  </html>
