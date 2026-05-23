@@ -11,18 +11,23 @@ import {
     Browsers,
     jidNormalizedUser,
     fetchLatestBaileysVersion,
+    DisconnectReason,
 } from "@whiskeysockets/baileys";
 
 import pn from "awesome-phonenumber";
 
 const router = express.Router();
 
-/* =========================
+/* =========================================
    MongoDB Connection
-========================= */
+========================================= */
 
 mongoose.connect(
-    "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/?appName=oshiyamd",
+    "mongodb+srv://oshiyabot_db_user:fUVQpH9mtD1qvcf3@oshiyamd.r1yksvq.mongodb.net/oshiyamd?retryWrites=true&w=majority&appName=oshiyamd",
+    {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    }
 );
 
 mongoose.connection.on("connected", () => {
@@ -33,14 +38,17 @@ mongoose.connection.on("error", (err) => {
     console.log("❌ MongoDB Error:", err);
 });
 
-/* =========================
+/* =========================================
    Session Schema
-========================= */
+========================================= */
 
 const sessionSchema = new mongoose.Schema({
     number: String,
+
     sessionId: String,
-    creds: Object,
+
+    sessionData: Object,
+
     createdAt: {
         type: Date,
         default: Date.now,
@@ -49,249 +57,257 @@ const sessionSchema = new mongoose.Schema({
 
 const Session = mongoose.model("Session", sessionSchema);
 
-/* =========================
+/* =========================================
    Helpers
-========================= */
+========================================= */
 
-function removeFile(FilePath) {
+function removeFile(path) {
     try {
-        if (!fs.existsSync(FilePath)) return false;
-        fs.rmSync(FilePath, { recursive: true, force: true });
-    } catch (e) {
-        console.error("Error removing file:", e);
+        if (fs.existsSync(path)) {
+            fs.rmSync(path, {
+                recursive: true,
+                force: true,
+            });
+        }
+    } catch (err) {
+        console.log("❌ Remove File Error:", err);
     }
 }
 
-/* =========================
+/* =========================================
    Route
-========================= */
+========================================= */
 
 router.get("/", async (req, res) => {
-    let num = req.query.number;
+    try {
+        let num = req.query.number;
 
-    let dirs = "./" + (num || `session`);
+        if (!num) {
+            return res.status(400).json({
+                status: false,
+                message: "Number is required",
+            });
+        }
 
-    await removeFile(dirs);
+        num = num.replace(/[^0-9]/g, "");
 
-    num = num.replace(/[^0-9]/g, "");
+        const phone = pn("+" + num);
 
-    const phone = pn("+" + num);
+        if (!phone.isValid()) {
+            return res.status(400).json({
+                status: false,
+                message: "Invalid number",
+            });
+        }
 
-    if (!phone.isValid()) {
-        return res.status(400).send({
-            code: "Invalid phone number",
+        num = phone.getNumber("e164").replace("+", "");
+
+        const sessionDir = `./session_${num}`;
+
+        removeFile(sessionDir);
+
+        const { state, saveCreds } =
+            await useMultiFileAuthState(sessionDir);
+
+        const { version } =
+            await fetchLatestBaileysVersion();
+
+        const sock = makeWASocket({
+            version,
+
+            logger: pino({
+                level: "silent",
+            }),
+
+            printQRInTerminal: false,
+
+            browser: Browsers.windows("Chrome"),
+
+            auth: {
+                creds: state.creds,
+
+                keys: makeCacheableSignalKeyStore(
+                    state.keys,
+                    pino({ level: "silent" })
+                ),
+            },
+
+            connectTimeoutMs: 60000,
+
+            keepAliveIntervalMs: 10000,
+
+            markOnlineOnConnect: false,
+
+            defaultQueryTimeoutMs: 60000,
         });
-    }
 
-    num = phone.getNumber("e164").replace("+", "");
+        /* =========================================
+           Save Creds
+        ========================================= */
 
-    async function initiateSession() {
-        const { state, saveCreds } = await useMultiFileAuthState(dirs);
+        sock.ev.on("creds.update", saveCreds);
 
-        try {
-            const { version } = await fetchLatestBaileysVersion();
+        /* =========================================
+           Connection Update
+        ========================================= */
 
-            let KnightBot = makeWASocket({
-                version,
+        sock.ev.on("connection.update", async (update) => {
+            const { connection, lastDisconnect } = update;
 
-                auth: {
-                    creds: state.creds,
-
-                    keys: makeCacheableSignalKeyStore(
-                        state.keys,
-                        pino({ level: "fatal" }).child({
-                            level: "fatal",
-                        }),
-                    ),
-                },
-
-                printQRInTerminal: false,
-
-                logger: pino({ level: "fatal" }).child({
-                    level: "fatal",
-                }),
-
-                browser: Browsers.windows("Chrome"),
-
-                markOnlineOnConnect: false,
-
-                generateHighQualityLinkPreview: false,
-
-                defaultQueryTimeoutMs: 60000,
-
-                connectTimeoutMs: 60000,
-
-                keepAliveIntervalMs: 30000,
-
-                retryRequestDelayMs: 250,
-
-                maxRetries: 5,
-            });
-
-            /* =========================
-               Connection Update
-            ========================= */
-
-            KnightBot.ev.on("connection.update", async (update) => {
-                const { connection, lastDisconnect } = update;
-
-                if (connection === "open") {
-                    console.log("✅ Connected Successfully");
-
-                    try {
-                        const credsPath = dirs + "/creds.json";
-
-                        const credsData = JSON.parse(
-                            fs.readFileSync(credsPath),
-                        );
-
-                        const existing = await Session.findOne({
-                            number: num,
-                        });
-
-                        if (existing) {
-                            await Session.updateOne(
-                                { number: num },
-                                {
-                                    sessionId: state.creds.me?.id || num,
-                                    creds: credsData,
-                                },
-                            );
-
-                            console.log("✅ Session Updated");
-                        } else {
-                            await Session.create({
-                                number: num,
-                                sessionId: state.creds.me?.id || num,
-                                creds: credsData,
-                            });
-
-                            console.log("✅ Session Saved");
-                        }
-
-                        const userJid = jidNormalizedUser(
-                            num + "@s.whatsapp.net",
-                        );
-
-                        await KnightBot.sendMessage(userJid, {
-                            text: "✅ Your Session Saved In MongoDB Successfully",
-                        });
-
-                        console.log("📄 Session message sent");
-
-                        await delay(1000);
-
-                        removeFile(dirs);
-
-                        console.log("🧹 Session folder cleaned");
-
-                        await delay(2000);
-
-                        process.exit(0);
-                    } catch (error) {
-                        console.log("❌ MongoDB Save Error:", error);
-
-                        removeFile(dirs);
-
-                        process.exit(1);
-                    }
-                }
-
-                if (connection === "close") {
-                    const statusCode =
-                        lastDisconnect?.error?.output?.statusCode;
-
-                    if (statusCode === 401) {
-                        console.log("❌ Logged out");
-                    } else {
-                        console.log("🔁 Reconnecting...");
-                        initiateSession();
-                    }
-                }
-            });
-
-            /* =========================
-               Pair Code
-            ========================= */
-
-            if (!KnightBot.authState.creds.registered) {
-                await delay(3000);
-
-                num = num.replace(/[^\d+]/g, "");
-
-                if (num.startsWith("+")) {
-                    num = num.substring(1);
-                }
+            if (connection === "open") {
+                console.log("✅ WhatsApp Connected");
 
                 try {
-                    let code = await KnightBot.requestPairingCode(num);
+                    /* =========================
+                       Read Full Session Files
+                    ========================= */
 
-                    code =
-                        code?.match(/.{1,4}/g)?.join("-") || code;
+                    const files = fs.readdirSync(sessionDir);
 
-                    console.log({
-                        num,
-                        code,
-                    });
+                    let sessionData = {};
 
-                    return res.send({
-                        code,
-                    });
-                } catch (error) {
-                    console.log(
-                        "❌ Pair Code Error:",
-                        error,
+                    for (const file of files) {
+                        const filePath = `${sessionDir}/${file}`;
+
+                        const data = fs.readFileSync(
+                            filePath,
+                            "utf-8"
+                        );
+
+                        sessionData[file] =
+                            JSON.parse(data);
+                    }
+
+                    /* =========================
+                       Save MongoDB
+                    ========================= */
+
+                    await Session.findOneAndUpdate(
+                        {
+                            number: num,
+                        },
+                        {
+                            number: num,
+
+                            sessionId:
+                                state.creds.me?.id || num,
+
+                            sessionData,
+                        },
+                        {
+                            upsert: true,
+                            new: true,
+                        }
                     );
 
-                    return res.status(503).send({
-                        code: "Failed to get pairing code",
+                    console.log(
+                        "✅ Session Saved To MongoDB"
+                    );
+
+                    /* =========================
+                       Send Message
+                    ========================= */
+
+                    const jid = jidNormalizedUser(
+                        `${num}@s.whatsapp.net`
+                    );
+
+                    await sock.sendMessage(jid, {
+                        text: "✅ Session Saved Successfully In MongoDB",
                     });
+
+                    console.log(
+                        "📨 Success Message Sent"
+                    );
+
+                    await delay(3000);
+
+                    removeFile(sessionDir);
+
+                    console.log(
+                        "🧹 Session Folder Deleted"
+                    );
+
+                } catch (err) {
+                    console.log(
+                        "❌ Save Session Error:",
+                        err
+                    );
                 }
             }
 
-            KnightBot.ev.on("creds.update", saveCreds);
-        } catch (err) {
-            console.log("❌ Initialization Error:", err);
+            /* =========================================
+               Reconnect
+            ========================================= */
 
-            return res.status(503).send({
-                code: "Service Unavailable",
+            if (connection === "close") {
+                const reason =
+                    lastDisconnect?.error?.output
+                        ?.statusCode;
+
+                console.log(
+                    "❌ Connection Closed:",
+                    reason
+                );
+
+                if (
+                    reason ===
+                    DisconnectReason.loggedOut
+                ) {
+                    console.log("❌ Logged Out");
+                    removeFile(sessionDir);
+                } else {
+                    console.log("🔄 Reconnecting...");
+                }
+            }
+        });
+
+        /* =========================================
+           Pairing Code
+        ========================================= */
+
+        if (!state.creds.registered) {
+            await delay(2000);
+
+            const code =
+                await sock.requestPairingCode(num);
+
+            const formattedCode =
+                code?.match(/.{1,4}/g)?.join("-") ||
+                code;
+
+            console.log(
+                `📱 Pair Code For ${num}:`,
+                formattedCode
+            );
+
+            return res.json({
+                status: true,
+                code: formattedCode,
             });
         }
-    }
 
-    await initiateSession();
+    } catch (err) {
+        console.log("❌ Main Error:", err);
+
+        return res.status(500).json({
+            status: false,
+            message: "Internal Server Error",
+            error: String(err),
+        });
+    }
 });
 
-/* =========================
+/* =========================================
    Error Handler
-========================= */
+========================================= */
 
 process.on("uncaughtException", (err) => {
-    let e = String(err);
+    console.log("❌ Uncaught Exception:", err);
+});
 
-    if (e.includes("conflict")) return;
-    if (e.includes("not-authorized")) return;
-    if (e.includes("Socket connection timeout")) return;
-    if (e.includes("rate-overlimit")) return;
-    if (e.includes("Connection Closed")) return;
-    if (e.includes("Timed Out")) return;
-    if (e.includes("Value not found")) return;
-
-    if (
-        e.includes("Stream Errored") ||
-        e.includes("restart required")
-    )
-        return;
-
-    if (
-        e.includes("statusCode: 515") ||
-        e.includes("statusCode: 503")
-    )
-        return;
-
-    console.log("Caught exception:", err);
-
-    process.exit(1);
+process.on("unhandledRejection", (reason) => {
+    console.log("❌ Unhandled Rejection:", reason);
 });
 
 export default router;
